@@ -13,7 +13,7 @@ import pymongo
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import ChannelBanned, ChannelInvalid, ChannelPrivate, ChatIdInvalid, ChatInvalid
 from pyrogram.enums import MessageMediaType, ParseMode
-from devgagan.core.func import *  # Ensure that progress_bar, rename_file, video_metadata, screenshot are available
+from devgagan.core.func import *  # Ensure that progress_bar, rename_file, video_metadata, screenshot are defined
 from pyrogram.errors import RPCError
 from pyrogram.types import Message
 from config import (
@@ -78,7 +78,7 @@ async def format_caption_to_html(caption: str) -> str:
 
 async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
     try:
-        upload_method = await fetch_upload_method(sender)  # "Pyrogram" or "Telethon"
+        upload_method = await fetch_upload_method(sender)
         metadata = video_metadata(file)
         width, height, duration = metadata['width'], metadata['height'], metadata['duration']
         try:
@@ -163,11 +163,9 @@ async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
                 attributes=attributes,
                 thumb=thumb_path
             )
-
     except Exception as e:
         await app.send_message(LOG_GROUP, f"**Upload Failed:** {str(e)}")
         print(f"Error during media upload: {e}")
-
     finally:
         if thumb_path and os.path.exists(thumb_path):
             os.remove(thumb_path)
@@ -365,15 +363,15 @@ async def download_user_stories(userbot, chat_id, msg_id, edit, sender):
         print(f"Failed to fetch story: {e}")
         await edit.edit(f"Error: {e}")
 
-###########################################
-# UPDATED: copy_message_with_chat_id       #
-###########################################
+##############################################
+# UPDATED: copy_message_with_chat_id fallback#
+##############################################
 async def copy_message_with_chat_id(app, userbot, sender, chat_id, message_id, edit):
     target_chat_id = user_chat_ids.get(sender, sender)
     file = None
     result = None
     try:
-        # First, try to get the message directly (for numeric IDs)
+        # First, try direct retrieval (numeric chat ID)
         msg = await app.get_messages(chat_id, message_id)
         custom_caption = get_user_caption_preference(sender)
         final_caption = format_caption(msg.caption or '', sender, custom_caption)
@@ -406,18 +404,12 @@ async def copy_message_with_chat_id(app, userbot, sender, chat_id, message_id, e
             return
         custom_caption = get_user_caption_preference(sender)
         final_caption = format_caption(msg.caption.markdown if msg.caption else "", sender, custom_caption)
-        topic_id = None
-        if '/' in str(target_chat_id):
-            target_chat_id, topic_id = map(int, target_chat_id.split('/', 1))
-        file = await userbot.download_media(
-            msg,
-            progress=progress_bar,
-            progress_args=("Downloading...", edit, time.time())
-        )
+        # For debugging, send the file to the sender's chat (ensuring valid target)
+        target = sender
+        file = await userbot.download_media(msg, progress=progress_bar, progress_args=("Downloading...", edit, time.time()))
         file = await rename_file(file, sender)
         await edit.edit("Uploading file as document...")
-        # Force upload as document regardless of media type:
-        result = await app.send_document(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
+        result = await app.send_document(target, file, caption=final_caption)
         await edit.edit("Upload successful!")
     except Exception as e:
         print(f"Fallback branch error: {e}")
@@ -447,7 +439,7 @@ def format_caption(original_caption, sender, custom_caption):
         original_caption = original_caption.replace(word, rep)
     return f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption else original_caption
 
-# ------------------------ Button/Settings Section ------------------------
+# ---------------------- Button/Settings Section ----------------------
 
 user_chat_ids = {}
 
