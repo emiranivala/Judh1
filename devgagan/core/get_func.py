@@ -13,7 +13,7 @@ import pymongo
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import ChannelBanned, ChannelInvalid, ChannelPrivate, ChatIdInvalid, ChatInvalid
 from pyrogram.enums import MessageMediaType, ParseMode
-from devgagan.core.func import *  # (Ensure progress_bar, rename_file, video_metadata, screenshot are defined here)
+from devgagan.core.func import *  # Ensure that progress_bar, rename_file, video_metadata, screenshot are available
 from pyrogram.errors import RPCError
 from pyrogram.types import Message
 from config import (
@@ -58,7 +58,7 @@ if STRING:
 else:
     pro = None
     print("STRING is not available. 'app' is set to None.")
-
+    
 async def fetch_upload_method(user_id):
     user_data = collection.find_one({"user_id": user_id})
     return user_data.get("upload_method", "Pyrogram") if user_data else "Pyrogram"
@@ -167,6 +167,7 @@ async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
     except Exception as e:
         await app.send_message(LOG_GROUP, f"**Upload Failed:** {str(e)}")
         print(f"Error during media upload: {e}")
+
     finally:
         if thumb_path and os.path.exists(thumb_path):
             os.remove(thumb_path)
@@ -174,7 +175,6 @@ async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     try:
-        # Sanitize link
         msg_link = msg_link.split("?single")[0]
         chat, msg_id = None, None
         saved_channel_ids = load_saved_channel_ids()
@@ -365,9 +365,9 @@ async def download_user_stories(userbot, chat_id, msg_id, edit, sender):
         print(f"Failed to fetch story: {e}")
         await edit.edit(f"Error: {e}")
 
-##############################################
-# UPDATED: copy_message_with_chat_id fallback #
-##############################################
+###########################################
+# UPDATED: copy_message_with_chat_id       #
+###########################################
 async def copy_message_with_chat_id(app, userbot, sender, chat_id, message_id, edit):
     target_chat_id = user_chat_ids.get(sender, sender)
     file = None
@@ -396,7 +396,6 @@ async def copy_message_with_chat_id(app, userbot, sender, chat_id, message_id, e
             await userbot.join_chat(chat_id)
         except Exception as e:
             print(f"Join chat failed: {e}")
-        # Ensure chat_id is in proper format
         if not chat_id.isdigit() and not chat_id.startswith('@'):
             chat_id = "@" + chat_id
         chat_obj = await userbot.get_chat(chat_id)
@@ -416,23 +415,9 @@ async def copy_message_with_chat_id(app, userbot, sender, chat_id, message_id, e
             progress_args=("Downloading...", edit, time.time())
         )
         file = await rename_file(file, sender)
-        await edit.edit("Uploading file...")
-        # Explicit upload routine (bypassing upload_media for clarity)
-        if msg.photo:
-            result = await app.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
-        elif msg.video:
-            result = await app.send_video(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
-        elif msg.document:
-            result = await app.send_document(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
-        elif msg.audio:
-            result = await app.send_audio(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
-        elif msg.voice:
-            result = await app.send_voice(target_chat_id, file, reply_to_message_id=topic_id)
-        elif msg.sticker:
-            result = await app.send_sticker(target_chat_id, msg.sticker.file_id, reply_to_message_id=topic_id)
-        else:
-            await edit.edit("Unsupported media type.")
-            return
+        await edit.edit("Uploading file as document...")
+        # Force upload as document regardless of media type:
+        result = await app.send_document(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
         await edit.edit("Upload successful!")
     except Exception as e:
         print(f"Fallback branch error: {e}")
@@ -462,7 +447,7 @@ def format_caption(original_caption, sender, custom_caption):
         original_caption = original_caption.replace(word, rep)
     return f"{original_caption}\n\n__**{custom_caption}**__" if custom_caption else original_caption
 
-# --------------------- Button/Settings Section ---------------------
+# ------------------------ Button/Settings Section ------------------------
 
 user_chat_ids = {}
 
@@ -485,11 +470,7 @@ def load_saved_channel_ids():
 
 def save_user_data(user_id, key, value):
     try:
-        collection.update_one(
-            {"_id": user_id},
-            {"$set": {key: value}},
-            upsert=True
-        )
+        collection.update_one({"_id": user_id}, {"$set": {key: value}}, upsert=True)
     except Exception as e:
         print(f"Error saving {key}: {e}")
 
@@ -538,12 +519,7 @@ async def send_settings_message(chat_id, user_id):
         [Button.inline("Upload Method", b'uploadmethod')],
         [Button.url("Report Errors", f"https://t.me/{OWNER_USERNAME}")]
     ]
-    await gf.send_file(
-        chat_id,
-        file=SET_PIC,
-        caption=MESS,
-        buttons=buttons
-    )
+    await gf.send_file(chat_id, file=SET_PIC, caption=MESS, buttons=buttons)
 
 pending_photos = {}
 
@@ -599,14 +575,8 @@ async def callback_query_handler(event):
     elif event.data == b'reset':
         try:
             user_id_str = str(user_id)
-            collection.update_one(
-                {"_id": user_id},
-                {"$unset": {"delete_words": "", "replacement_words": "", "watermark_text": "", "duration_limit": ""}}
-            )
-            collection.update_one(
-                {"user_id": user_id},
-                {"$unset": {"delete_words": "", "replacement_words": "", "watermark_text": "", "duration_limit": ""}}
-            )
+            collection.update_one({"_id": user_id}, {"$unset": {"delete_words": "", "replacement_words": "", "watermark_text": "", "duration_limit": ""}})
+            collection.update_one({"user_id": user_id}, {"$unset": {"delete_words": "", "replacement_words": "", "watermark_text": "", "duration_limit": ""}})
             user_chat_ids.pop(user_id, None)
             user_rename_preferences.pop(user_id_str, None)
             user_caption_preferences.pop(user_id_str, None)
@@ -698,7 +668,7 @@ async def lock_command_handler(event):
         await event.respond(f"Channel ID {channel_id} locked successfully.")
     except Exception as e:
         await event.respond(f"Error occurred while locking channel ID: {str(e)}")
-        
+
 async def handle_large_file(file, sender, edit, caption):
     if pro is None:
         await edit.edit('**__ ❌ 4GB trigger not found__**')
