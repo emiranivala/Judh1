@@ -58,7 +58,7 @@ if STRING:
 else:
     pro = None
     print("STRING is not available. 'app' is set to None.")
-
+    
 async def fetch_upload_method(user_id):
     """Fetch the user's preferred upload method."""
     user_data = collection.find_one({"user_id": user_id})
@@ -77,6 +77,7 @@ async def format_caption_to_html(caption: str) -> str:
     caption = re.sub(r"\[(.*?)\]\((.*?)\)", r'<a href="\2">\1</a>', caption)
     return caption.strip() if caption else None
 
+    
 async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
     try:
         upload_method = await fetch_upload_method(sender)  # Fetch the upload method (Pyrogram or Telethon)
@@ -108,6 +109,7 @@ async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
                     progress_args=("╭─      **__Pyro Uploader__**", edit, time.time())
                 )
                 await dm.copy(LOG_GROUP)
+                
             elif file.split('.')[-1].lower() in image_formats:
                 dm = await app.send_photo(
                     chat_id=target_chat_id,
@@ -179,6 +181,7 @@ async def upload_media(sender, target_chat_id, file, caption, edit, topic_id):
         if thumb_path and os.path.exists(thumb_path):
             os.remove(thumb_path)
         gc.collect()
+
 
 async def get_msg(userbot, sender, edit_id, msg_link, i, message):
     try:
@@ -316,7 +319,7 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
             os.remove(file)
         if edit:
             await edit.delete(2)
-
+        
 async def clone_message(app, msg, target_chat_id, topic_id, edit_id, log_group):
     edit = await app.edit_message_text(target_chat_id, edit_id, "Cloning...")
     devgaganin = await app.send_message(target_chat_id, msg.text.markdown, reply_to_message_id=topic_id)
@@ -449,14 +452,10 @@ async def copy_message_with_chat_id(app, userbot, sender, chat_id, message_id, e
             if msg.photo:
                 result = await app.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
             elif msg.video or msg.document:
-                freecheck = await chk_user(chat_id, sender)
-                if file_size > size_limit and (freecheck == 1 or pro is None):
+                if file_size > size_limit:
                     await edit.delete()
                     await split_and_upload_file(app, sender, target_chat_id, file, final_caption, topic_id)
                     return       
-                elif file_size > size_limit:
-                    await handle_large_file(file, sender, edit, final_caption)
-                    return
                 await upload_media(sender, target_chat_id, file, final_caption, edit, topic_id)
             elif msg.audio:
                 result = await app.send_audio(target_chat_id, file, caption=final_caption, reply_to_message_id=topic_id)
@@ -484,7 +483,7 @@ async def send_media_message(app, target_chat_id, msg, caption, topic_id):
     except Exception as e:
         print(f"Error while sending media: {e}")
     return await app.copy_message(target_chat_id, msg.chat.id, msg.id, reply_to_message_id=topic_id)
-
+    
 def format_caption(original_caption, sender, custom_caption):
     delete_words = load_delete_words(sender)
     replacements = load_replacement_words(sender)
